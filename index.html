@@ -3,6 +3,7 @@
 <head>
 <title>Live Status Board - Market Dashboard</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
 <style>
 body {
   background-color: #c0c0c0;
@@ -11,9 +12,16 @@ body {
   padding: 0;
 }
 </style>
+
+<!-- Google AdSense (SITE VERIFICATION SCRIPT) -->
+<script async
+  src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1251113922349459"
+  crossorigin="anonymous">
+</script>
+
 <script>
 // REPLACE WITH YOUR FREE API KEY FROM https://finnhub.io/register
-const FINNHUB_API_KEY = 'demo'; // Get free key at https://finnhub.io/
+const FINNHUB_API_KEY = 'demo';
 
 // Global state variables
 var marketMood = 'neutral';
@@ -22,264 +30,130 @@ var activityPulse = 0;
 var lastSPYPrice = null;
 var lastGoldPrice = null;
 
-// Function to determine market phase based on time
 function getMarketPhase() {
   var now = new Date();
-  
-  // Get day of week (0 = Sunday, 6 = Saturday)
   var day = now.getDay();
-  
-  // Check if weekend
   if (day === 0 || day === 6) {
     return { phase: 'closed', color: '#808080', text: 'WEEKEND' };
   }
-  
+
   var hour = now.getHours();
   var minute = now.getMinutes();
-  
-  // Convert to EST
   var estOffset = -5;
   var userOffset = now.getTimezoneOffset() / -60;
   var estHour = hour + (estOffset - userOffset);
   if (estHour < 0) estHour += 24;
   if (estHour >= 24) estHour -= 24;
-  
+
   var estTimeInMinutes = estHour * 60 + minute;
-  
   var marketOpen = 9 * 60 + 30;
   var marketClose = 16 * 60;
   var preMarket = 8 * 60;
-  
+
   if (estTimeInMinutes < preMarket) {
     return { phase: 'closed', color: '#808080', text: 'CLOSED' };
-  } else if (estTimeInMinutes >= preMarket && estTimeInMinutes < marketOpen) {
+  } else if (estTimeInMinutes < marketOpen) {
     return { phase: 'pre', color: '#6699ff', text: 'PRE-MARKET' };
-  } else if (estTimeInMinutes >= marketOpen && estTimeInMinutes < marketClose - 30) {
+  } else if (estTimeInMinutes < marketClose - 30) {
     return { phase: 'open', color: '#00cc00', text: 'MARKET OPEN' };
-  } else if (estTimeInMinutes >= marketClose - 30 && estTimeInMinutes < marketClose) {
+  } else if (estTimeInMinutes < marketClose) {
     return { phase: 'closing', color: '#ff9900', text: 'CLOSING' };
   } else {
     return { phase: 'closed', color: '#808080', text: 'CLOSED' };
   }
 }
 
-// Fetch SPY (S&P 500 ETF) quote for market mood
 function updateMarketMood() {
   fetch('https://finnhub.io/api/v1/quote?symbol=SPY&token=' + FINNHUB_API_KEY)
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
-      try {
-        var currentPrice = data.c; // Current price
-        var previousClose = data.pc; // Previous close
-        
-        var cell = document.getElementById('moodCell');
-        var text = document.getElementById('moodText');
-        var priceText = document.getElementById('spyPrice');
-        
-        if (currentPrice && previousClose) {
-          var changePercent = ((currentPrice - previousClose) / previousClose) * 100;
-          
-          if (changePercent > 0.5) {
-            marketMood = 'strong';
-            cell.style.backgroundColor = '#00ff00';
-            text.innerHTML = '<b>STRONG</b>';
-          } else if (changePercent < -0.5) {
-            marketMood = 'weak';
-            cell.style.backgroundColor = '#ff0000';
-            text.innerHTML = '<b>WEAK</b>';
-          } else {
-            marketMood = 'neutral';
-            cell.style.backgroundColor = '#ffff00';
-            text.innerHTML = '<b>NEUTRAL</b>';
-          }
-          
-          priceText.innerHTML = 'SPY: $' + currentPrice.toFixed(2) + ' (' + (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%)';
-          lastSPYPrice = currentPrice;
+      var currentPrice = data.c;
+      var previousClose = data.pc;
+      var cell = document.getElementById('moodCell');
+      var text = document.getElementById('moodText');
+      var priceText = document.getElementById('spyPrice');
+
+      if (currentPrice && previousClose) {
+        var changePercent = ((currentPrice - previousClose) / previousClose) * 100;
+        if (changePercent > 0.5) {
+          cell.style.backgroundColor = '#00ff00';
+          text.innerHTML = '<b>STRONG</b>';
+        } else if (changePercent < -0.5) {
+          cell.style.backgroundColor = '#ff0000';
+          text.innerHTML = '<b>WEAK</b>';
+        } else {
+          cell.style.backgroundColor = '#ffff00';
+          text.innerHTML = '<b>NEUTRAL</b>';
         }
-      } catch (e) {
-        console.log('Error parsing SPY data:', e);
-        simulateMarketMood();
+        priceText.innerHTML = 'SPY: $' + currentPrice.toFixed(2);
       }
-    })
-    .catch(error => {
-      console.log('Error fetching SPY data:', error);
-      simulateMarketMood();
     });
 }
 
-// Fallback simulation
-function simulateMarketMood() {
-  var rand = Math.random();
-  var cell = document.getElementById('moodCell');
-  var text = document.getElementById('moodText');
-  
-  if (rand < 0.33) {
-    marketMood = 'strong';
-    cell.style.backgroundColor = '#00ff00';
-    text.innerHTML = '<b>STRONG</b>';
-  } else if (rand < 0.66) {
-    marketMood = 'neutral';
-    cell.style.backgroundColor = '#ffff00';
-    text.innerHTML = '<b>NEUTRAL</b>';
-  } else {
-    marketMood = 'weak';
-    cell.style.backgroundColor = '#ff0000';
-    text.innerHTML = '<b>WEAK</b>';
-  }
-  document.getElementById('spyPrice').innerHTML = 'API limit reached - get free key';
-}
-
-// Fetch GLD (Gold ETF) quote
 function updateGoldTrend() {
   fetch('https://finnhub.io/api/v1/quote?symbol=GLD&token=' + FINNHUB_API_KEY)
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
-      try {
-        var currentPrice = data.c; // Current price
-        var previousClose = data.pc; // Previous close
-        
-        var cell = document.getElementById('goldCell');
-        var text = document.getElementById('goldText');
-        var priceDisplay = document.getElementById('goldPrice');
-        
-        if (currentPrice && previousClose) {
-          var change = currentPrice - previousClose;
-          var changePercent = (change / previousClose) * 100;
-          
-          if (change > 0.2) {
-            goldTrend = 'rising';
-            cell.style.backgroundColor = '#00ff00';
-            text.innerHTML = '<b>▲ RISING</b>';
-          } else if (change < -0.2) {
-            goldTrend = 'falling';
-            cell.style.backgroundColor = '#ff0000';
-            text.innerHTML = '<b>▼ FALLING</b>';
-          } else {
-            goldTrend = 'stable';
-            cell.style.backgroundColor = '#cccccc';
-            text.innerHTML = '<b>● STABLE</b>';
-          }
-          
-          priceDisplay.innerHTML = 'GLD: $' + currentPrice.toFixed(2) + ' (' + (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%)';
-          lastGoldPrice = currentPrice;
+      var cell = document.getElementById('goldCell');
+      var text = document.getElementById('goldText');
+      if (data.c && data.pc) {
+        if (data.c > data.pc) {
+          cell.style.backgroundColor = '#00ff00';
+          text.innerHTML = '<b>▲ RISING</b>';
+        } else {
+          cell.style.backgroundColor = '#ff0000';
+          text.innerHTML = '<b>▼ FALLING</b>';
         }
-      } catch (e) {
-        console.log('Error parsing GLD data:', e);
-        simulateGoldTrend();
       }
-    })
-    .catch(error => {
-      console.log('Error fetching GLD data:', error);
-      simulateGoldTrend();
     });
 }
 
-// Fallback simulation for gold
-function simulateGoldTrend() {
-  var rand = Math.random();
-  var cell = document.getElementById('goldCell');
-  var text = document.getElementById('goldText');
-  
-  if (rand < 0.4) {
-    goldTrend = 'rising';
-    cell.style.backgroundColor = '#00ff00';
-    text.innerHTML = '<b>▲ RISING</b>';
-  } else if (rand < 0.8) {
-    goldTrend = 'falling';
-    cell.style.backgroundColor = '#ff0000';
-    text.innerHTML = '<b>▼ FALLING</b>';
-  } else {
-    goldTrend = 'stable';
-    cell.style.backgroundColor = '#cccccc';
-    text.innerHTML = '<b>● STABLE</b>';
-  }
-  document.getElementById('goldPrice').innerHTML = 'API limit reached - get free key';
-}
-
-// Update market phase display
 function updateMarketPhase() {
   var phase = getMarketPhase();
-  var cell = document.getElementById('phaseCell');
-  var text = document.getElementById('phaseText');
-  
-  cell.style.backgroundColor = phase.color;
-  text.innerHTML = '<b>' + phase.text + '</b>';
+  document.getElementById('phaseCell').style.backgroundColor = phase.color;
+  document.getElementById('phaseText').innerHTML = '<b>' + phase.text + '</b>';
 }
 
-// Update activity pulse
-function updateActivityPulse() {
-  activityPulse = (activityPulse + 1) % 10;
-  var cell = document.getElementById('pulseCell');
-  
-  var colors = ['#ff0000', '#ff6600', '#ffcc00', '#ffff00', '#ccff00', '#66ff00', '#00ff00', '#00ff66', '#00ffcc', '#00ffff'];
-  cell.style.backgroundColor = colors[activityPulse];
-  
-  var bar = '';
-  for (var i = 0; i < activityPulse; i++) {
-    bar += '█';
-  }
-  document.getElementById('pulseBar').innerHTML = bar;
-}
-
-// Update current time display
 function updateClock() {
-  var now = new Date();
-  var timeStr = now.toLocaleTimeString();
-  document.getElementById('clockDisplay').innerHTML = timeStr;
+  document.getElementById('clockDisplay').innerHTML =
+    new Date().toLocaleTimeString();
 }
 
-// Initialize and set up intervals
 function init() {
-  // Show API key notice if using demo key
-  if (FINNHUB_API_KEY === 'demo') {
-    var notice = document.getElementById('apiNotice');
-    notice.style.display = 'block';
-  }
-  
   updateMarketMood();
   updateGoldTrend();
   updateMarketPhase();
-  updateActivityPulse();
   updateClock();
-  
-  // Update market data every 15 seconds (demo key: 60 calls/min, free key: 60 calls/min)
   setInterval(updateMarketMood, 15000);
   setInterval(updateGoldTrend, 15000);
-  
-  // Update market phase every second
   setInterval(updateMarketPhase, 1000);
-  
-  // Update activity pulse every 800ms
-  setInterval(updateActivityPulse, 800);
-  
-  // Update clock every second
   setInterval(updateClock, 1000);
 }
 
 window.onload = init;
 </script>
 </head>
-<body>
 
+<body>
 <center>
+
 <br>
 <font size="6" color="#000080"><b>⚡ LIVE STATUS BOARD ⚡</b></font>
 <br>
+
+<!-- GOOGLE AD (TOP – BEST EARNING POSITION) -->
+<ins class="adsbygoogle"
+     style="display:block; margin:15px auto;"
+     data-ad-client="ca-pub-1251113922349459"
+     data-ad-slot="1737551948"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+  (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+
 <font size="2" color="#666666">Real-time Market Dashboard</font>
 <br><br>
-
-<table border="1" cellpadding="5" cellspacing="0" bgcolor="#ffcccc" width="700" id="apiNotice" style="display:none;">
-<tr>
-<td align="center">
-<font size="2" color="#cc0000">
-<b>⚠️ DEMO MODE:</b> Using demo API key with rate limits. 
-Get your FREE API key at <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a> 
-and replace 'demo' in the code!
-</font>
-</td>
-</tr>
-</table>
-<br>
 
 <table border="3" cellpadding="10" cellspacing="0" bgcolor="#ffffff" width="700">
 <tr>
@@ -299,18 +173,17 @@ and replace 'demo' in the code!
 <table border="3" cellpadding="15" cellspacing="0" bgcolor="#ffffff" width="700">
 <tr>
 <td bgcolor="#cc0000" align="center">
-<font color="#ffffff" size="4"><b>MARKET MOOD INDICATOR</b></font>
+<font color="#ffffff" size="4"><b>MARKET MOOD</b></font>
 </td>
 </tr>
 <tr>
-<td id="moodCell" align="center" height="100" bgcolor="#ffff00">
+<td id="moodCell" align="center" height="100">
 <font size="6" id="moodText"><b>LOADING...</b></font>
 </td>
 </tr>
 <tr>
 <td align="center" bgcolor="#f0f0f0">
-<font size="2">Green = Strong | Yellow = Neutral | Red = Weak<br>
-<span id="spyPrice">--</span></font>
+<font size="2" id="spyPrice">--</font>
 </td>
 </tr>
 </table>
@@ -319,81 +192,25 @@ and replace 'demo' in the code!
 
 <table border="3" cellpadding="10" cellspacing="0" width="700">
 <tr>
-<td width="50%" valign="top">
-<table border="2" cellpadding="10" cellspacing="0" bgcolor="#ffffff" width="100%">
-<tr>
-<td bgcolor="#cc9900" align="center">
-<font color="#ffffff" size="3"><b>GOLD TREND</b></font>
-</td>
-</tr>
-<tr>
-<td id="goldCell" align="center" height="80" bgcolor="#cccccc">
-<font size="5" id="goldText"><b>LOADING...</b></font>
-</td>
-</tr>
-<tr>
-<td align="center" bgcolor="#f0f0f0">
-<font size="2" id="goldPrice">--</font>
-</td>
-</tr>
+<td width="50%">
+<table border="2" width="100%">
+<tr><td bgcolor="#cc9900" align="center"><b>GOLD</b></td></tr>
+<tr><td id="goldCell" align="center"><span id="goldText">LOADING</span></td></tr>
 </table>
 </td>
-<td width="50%" valign="top">
-<table border="2" cellpadding="10" cellspacing="0" bgcolor="#ffffff" width="100%">
-<tr>
-<td bgcolor="#006600" align="center">
-<font color="#ffffff" size="3"><b>MARKET PHASE</b></font>
-</td>
-</tr>
-<tr>
-<td id="phaseCell" align="center" height="80" bgcolor="#808080">
-<font size="5" id="phaseText"><b>CHECKING...</b></font>
-</td>
-</tr>
-<tr>
-<td align="center" bgcolor="#f0f0f0">
-<font size="1">Based on EST</font>
-</td>
-</tr>
+<td width="50%">
+<table border="2" width="100%">
+<tr><td bgcolor="#006600" align="center"><b>MARKET PHASE</b></td></tr>
+<tr><td id="phaseCell" align="center"><span id="phaseText">--</span></td></tr>
 </table>
 </td>
 </tr>
 </table>
 
 <br>
-
-<table border="3" cellpadding="10" cellspacing="0" bgcolor="#ffffff" width="700">
-<tr>
-<td bgcolor="#660066" align="center">
-<font color="#ffffff" size="3"><b>ACTIVITY PULSE</b></font>
-</td>
-</tr>
-<tr>
-<td id="pulseCell" align="center" height="50" bgcolor="#ff0000">
-<font size="4" color="#000000" id="pulseBar"></font>
-</td>
-</tr>
-</table>
-
-<br>
-
-<table border="1" cellpadding="5" cellspacing="0" bgcolor="#ffffcc" width="700">
-<tr>
-<td align="center">
-<font size="2" color="#666666">
-<b>Status Legend:</b> Live data from Finnhub API (CORS-enabled). 
-Market Mood based on SPY (S&P 500 ETF). Gold Trend based on GLD (Gold ETF).
-Updates every 15 seconds. <b>FREE tier: 60 API calls/minute!</b>
-</font>
-</td>
-</tr>
-</table>
-
-<br>
-<font size="1" color="#999999">© 2026 Live Status Board | Best viewed in any browser | Data from Finnhub.io</font>
+<font size="1" color="#999999">© 2026 Live Status Board</font>
 <br><br>
 
 </center>
-
 </body>
 </html>
